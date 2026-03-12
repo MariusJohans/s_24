@@ -24,49 +24,30 @@ for (p in pkgs) {
 ## Load data
 Data <- read_excel("Data.xlsx", col_names = TRUE)
 
-##=============================================================================
-##
-## Basic plots
-##
-##=============================================================================
-
-ggplot(Data, aes(x = as.numeric(Year), y = Proportion, color = Sex, group = Sex)) +
-  geom_smooth(method = "loess", se = FALSE, span = 0.5) + 
-  facet_wrap(~Grade) +
-  scale_x_continuous(breaks = unique(as.numeric(Data$Year)), labels = unique(Data$Year)) +
-  labs(
-    title = "Grade proportions by year and sex",
-    y =     "Proportion",
-    x =     "Year"
-    ) +
-  ylim(0, 1) +
-  scale_color_manual(values = c("F" = "darkorange",   
-                                "M" = "cyan4")) +
-  theme_minimal()
+## Filter courses (PED115 or PEDBCH)
+fag_data <- Data %>% 
+  filter(Course == "PEDBCH")
 
 ##=============================================================================
 ##
-## Models
+## Models & plots
 ##
 ##=============================================================================
 
 ## Average proportions
-Data %>%
+fag_data %>%
   group_by(Sex, Grade) %>%
   summarise(avg_prop = mean(Proportion)) %>%
   arrange(Sex, desc(avg_prop))
 ## Likelihood of grade ... by sex
-Data$is_A <- ifelse(Data$Grade == "A", 1, 0)
-## Fit a simple linear model weighted by 1
-lm_A <- lm(Proportion ~ Sex, data = Data, subset = (Grade == "A"))
-summary(lm_A)
+fag_data$is_A <- ifelse(fag_data$Grade == "A", 1, 0)
 ## Ordinal trend checks
-polr_model <- polr(factor(Grade_num) ~ Sex, data = Data, weights = Proportion)
+polr_model <- polr(factor(Grade_num) ~ Sex, data = fag_data, weights = Proportion)
 summary(polr_model)
 ## Cumulative model
-polr_model <- polr(factor(Grade_num) ~ Sex, data = Data, weights = Proportion)
+polr_model <- polr(factor(Grade_num) ~ Sex, data = fag_data, weights = Proportion)
 ## Create a new data frame for prediction
-newdata <- expand.grid(Sex = unique(Data$Sex))
+newdata <- expand.grid(Sex = unique(fag_data$Sex))
 ## Predict cumulative probabilities
 cum_probs <- predict(polr_model, newdata, type = "prob")
 ## Convert to tidy format for ggplot
@@ -82,7 +63,7 @@ cum_probs_cum$Grade <- factor(
   levels = 1:6,
   labels = c("F","E","D","C","B","A"),
   ordered = TRUE
-  )
+)
 ggplot(cum_probs_cum, aes(x = Grade, y = Cumulative, 
                           color = Sex, group = Sex)) +
   geom_smooth(method = "loess", se = FALSE, size = 1.3) +
